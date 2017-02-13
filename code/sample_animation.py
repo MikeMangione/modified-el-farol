@@ -17,9 +17,36 @@ bar = [0 for x in range(0,people)]
 leaving_q = [0 for x in range(0,people)]
 leaving_b = [0 for x in range(0,people)]
 
+def avg_bar_optimism():
+    peeps = 0
+    opt = 0
+    for x in range(0,people):
+        if bar[x] == 1:
+            peeps += 1
+            opt += optimism[x]
+    print "average bar optimism = ",opt/peeps
+
+def avg_bar_patience():
+    peeps = 0
+    pat = 0
+    for x in range(0,people):
+        if bar[x] == 1:
+            peeps += 1
+            pat += patience[x]
+    print "average bar patience = ",pat/peeps
+
+def avg_bar_extroversion():
+    peeps = 0
+    ext = 0
+    for x in range(0,people):
+        if bar[x] == 1:
+            peeps += 1
+            ext += extroversion[x]
+    print "average bar extroversion = ",ext/peeps
+
 def step(x,y,queue,bar,timer):
     temp_time = time.time()
-    for y_ in range(0,len(y)):
+    for y_ in range(0,people):
         if queue[y_] == 0 and bar[y_] == 0 and leaving_q[y_] == 0 and leaving_b[y_] == 0:
             y[y_] = (y[y_]+0.1)%10
             if y[y_] > 6 and sum(queue) < optimism[y_]:
@@ -71,6 +98,11 @@ def animate(i):
     ax = plt.axes(xlim=(0, 10), ylim=(0, 10))
     x, y = step(x_movements, y_movements, queue, bar, timer)
     plt.scatter(x_movements,y_movements)
+    if ITERATION % 10 == 0:
+        avg_bar_optimism()
+        avg_bar_patience()
+        avg_bar_extroversion()
+        print "||||||||||||||||||||"
     return
 
 x_movements, y_movements = update_pos(people)
