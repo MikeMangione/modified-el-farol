@@ -1,12 +1,20 @@
 #!/usr/bin/env python
 import numpy as np
+import sys
 import time
 import random
+import matplotlib.patches as patches
+import matplotlib.cm as cm
+from matplotlib.mlab import bivariate_normal
 from matplotlib import pyplot as plt
+from matplotlib.widgets import Slider, Button
 from matplotlib import animation\
 
 ITERATION = 0
 people = 1000
+bar_stats = 'Bar\nPopulation %:\nOptimism:\nPatience:\nExtroversion: '
+queue_stats = 'Queue\nPopulation %:\nOptimism:\nPatience:\nExtroversion: '
+street_stats = 'Street\nPopulation %:\nOptimism:\nPatience:\nExtroversion: '
 optimism = [random.random()*people for x in range(0,people)]
 patience = [random.random()*people for x in range(0,people)]
 extroversion = [random.random()*people for x in range(0,people)]
@@ -14,42 +22,37 @@ ind_wait = [0 for x in range(0,people)]
 timer = [0 for x in range(0,people)]
 queue = [0 for x in range(0,people)]
 bar = [0 for x in range(0,people)]
+street = [0 for x in range(0,people)]
 leaving_q = [0 for x in range(0,people)]
 leaving_b = [0 for x in range(0,people)]
 
-def avg_bar_optimism():
-    peeps = 0
+def avg_optimism(arr):
     opt = 0
     for x in range(0,people):
-        if bar[x] == 1:
-            peeps += 1
+        if arr[x] == 1:
             opt += optimism[x]
-    print "average bar optimism = ",opt/peeps
+    return "{0:.2f}".format(opt/sum(arr)/people)
 
-def avg_bar_patience():
-    peeps = 0
+def avg_patience(arr):
     pat = 0
     for x in range(0,people):
-        if bar[x] == 1:
-            peeps += 1
+        if arr[x] == 1:
             pat += patience[x]
-    print "average bar patience = ",pat/peeps
+    return "{0:.2f}".format(pat/sum(arr)/people)
 
-def avg_bar_extroversion():
-    peeps = 0
+def avg_extroversion(arr):
     ext = 0
     for x in range(0,people):
-        if bar[x] == 1:
-            peeps += 1
+        if arr[x] == 1:
             ext += extroversion[x]
-    print "average bar extroversion = ",ext/peeps
+    return "{0:.2f}".format(ext/sum(arr)/people)
 
 def step(x,y,queue,bar,timer):
     temp_time = time.time()
     for y_ in range(0,people):
         if queue[y_] == 0 and bar[y_] == 0 and leaving_q[y_] == 0 and leaving_b[y_] == 0:
             y[y_] = (y[y_]+0.1)%10
-            if y[y_] > 6 and sum(queue) < optimism[y_]:
+            if y[y_] < 3 and y[y_] > 2 and sum(queue) < optimism[y_]:
                 queue[y_] = 1
                 ind_wait[y_] = sum(queue)
                 timer[y_] = ITERATION
@@ -68,11 +71,11 @@ def step(x,y,queue,bar,timer):
                 x[y_] += 0.1
             else:
                 pass
-            if y[y_] > 4:
-                y[y_] -= 0.2
+            if y[y_] < 4:
+                y[y_] += 0.2
             else:
                 pass
-            if x[y_] >= 6 - y_ * 0.00002 and y[y_] <= 4:
+            if x[y_] >= 6 - y_ * 0.00002 and y[y_] >= 4:
                 if ITERATION - timer[y_] > ind_wait[y_]:
                     bar[y_] = 1
                     queue[y_], ind_wait[y_] = 0,0
@@ -84,6 +87,10 @@ def step(x,y,queue,bar,timer):
             if sum(bar) > extroversion[y_]:
                 leaving_b[y_] = 1
                 bar[y_] = 0
+        if (bar[y_], queue[y_]) == (0,0):
+            street[y_] = 1
+        else:
+            street[y_] = 0
     global ITERATION
     ITERATION += 1
     return x,y
@@ -96,20 +103,25 @@ def update_pos(p):
 def animate(i):
     plt.clf()
     ax = plt.axes(xlim=(0, 10), ylim=(0, 10))
+    ax.add_patch(patches.Rectangle((5.8,3.8),2.4,4.4,fill=False))
     x, y = step(x_movements, y_movements, queue, bar, timer)
     plt.scatter(x_movements,y_movements)
-    if ITERATION % 10 == 0:
-        avg_bar_optimism()
-        avg_bar_patience()
-        avg_bar_extroversion()
-        print "||||||||||||||||||||"
+    global bar_stats, queue_stats, street_stats
+    if sum(bar) > 0:
+        bar_stats = 'Bar\nPopulation %:'+"{0:.2f}".format(sum(bar)*1.0/people)+'\nOptimism: '+avg_optimism(bar)+'\nPatience: '+avg_patience(bar)+'\nExtroversion: '+avg_extroversion(bar)
+        queue_stats = 'Queue\nPopulation %:'+"{0:.2f}".format(sum(queue)*1.0/people)+'\nOptimism: '+avg_optimism(queue)+'\nPatience: '+avg_patience(queue)+'\nExtroversion: '+avg_extroversion(queue)
+        street_stats = 'Street\nPopulation %:'+"{0:.2f}".format(sum(street)*1.0/people)+'\nOptimism: '+avg_optimism(street)+'\nPatience: '+avg_patience(street)+'\nExtroversion: '+avg_extroversion(street)
+    ax.text(7, 1, bar_stats, style='italic',
+        bbox={'facecolor':'green', 'alpha':0.5, 'pad':10})
+    ax.text(3, 1, queue_stats, style='italic',
+        bbox={'facecolor':'yellow', 'alpha':0.5, 'pad':10})
+    ax.text(3, 7, street_stats, style='italic',
+        bbox={'facecolor':'red', 'alpha':0.5, 'pad':10})
     return
 
 x_movements, y_movements = update_pos(people)
 
-fig = plt.figure()
-fig.set_dpi(100)
-fig.set_size_inches(5, 5)
+fig, ax = plt.subplots()
 
 ax = plt.axes(xlim=(0, 10), ylim=(0, 10))
 
@@ -117,4 +129,5 @@ anim = animation.FuncAnimation(fig, animate,
                                frames = 10,
                                interval=1,
                                blit=False)
+
 plt.show()
