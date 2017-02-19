@@ -1,8 +1,10 @@
 #!/usr/bin/env python
+import sqlite3
 import numpy as np
 import sys
 import time
 import random
+import os.path
 import matplotlib.patches as patches
 import matplotlib.cm as cm
 from matplotlib.mlab import bivariate_normal
@@ -11,20 +13,6 @@ from matplotlib.widgets import Slider, Button
 from matplotlib import animation\
 
 ITERATION = 0
-people = 1000
-bar_stats = 'Bar\nPopulation %:\nOptimism:\nPatience:\nExtroversion: '
-queue_stats = 'Queue\nPopulation %:\nOptimism:\nPatience:\nExtroversion: '
-street_stats = 'Street\nPopulation %:\nOptimism:\nPatience:\nExtroversion: '
-optimism = [random.random()*people for x in range(0,people)]
-patience = [random.random()*people for x in range(0,people)]
-extroversion = [random.random()*people for x in range(0,people)]
-ind_wait = [0 for x in range(0,people)]
-timer = [0 for x in range(0,people)]
-queue = [0 for x in range(0,people)]
-bar = [0 for x in range(0,people)]
-street = [0 for x in range(0,people)]
-leaving_q = [0 for x in range(0,people)]
-leaving_b = [0 for x in range(0,people)]
 
 def avg_optimism(arr):
     opt = 0
@@ -91,7 +79,18 @@ def step(x,y,queue,bar,timer):
             street[y_] = 1
         else:
             street[y_] = 0
-    global ITERATION
+        global ITERATION
+        if ITERATION % 10 == 0:
+            c.execute('INSERT INTO {tn} ({it},{pt},{ib},{iq},{isc},{oc},{pc},{ec})\
+                VALUES({iter},{num},{bar},{queue},{street},{opt},{pat},{ext})'\
+                .format(tn=table_name1, it=iteration_col,\
+                pt=patron_col, ib=in_bar_col,\
+                iq=in_queue_col, isc=in_street_col,\
+                oc=optimism_col, pc=patience_col,\
+                ec=extroversion_col,iter=ITERATION,\
+                num=y_,bar=bar[y_],queue=queue[y_],street=street[y_],\
+                opt=optimism[y_]*1.0/people,pat=patience[y_]*1.0/people,ext=extroversion[y_]*1.0/people
+                ))
     ITERATION += 1
     return x,y
 
@@ -102,9 +101,11 @@ def update_pos(p):
 
 def animate(i):
     plt.clf()
+    fig.suptitle('Modified El-Farol', fontsize=14, fontweight='bold')
     ax = plt.axes(xlim=(0, 10), ylim=(0, 10))
     ax.add_patch(patches.Rectangle((5.8,3.8),2.4,4.4,fill=False))
     x, y = step(x_movements, y_movements, queue, bar, timer)
+    ax.set_title('Frame Number: '+str(ITERATION))
     plt.scatter(x_movements,y_movements)
     global bar_stats, queue_stats, street_stats
     if sum(bar) > 0:
@@ -119,6 +120,38 @@ def animate(i):
         bbox={'facecolor':'red', 'alpha':0.5, 'pad':10})
     return
 
+sqlite_file = 'el-farol_stats.sqlite'    # name of the sqlite database file
+table_name1 = 'simulation'
+iteration_col, patron_col, in_bar_col, in_queue_col, in_street_col = 'iteration', 'patron_number', 'in_bar', 'in_queue', 'in_street'
+optimism_col, patience_col, extroversion_col = 'optimism', 'patience', 'extroversion'
+
+conn = sqlite3.connect(sqlite_file)
+c = conn.cursor()
+c.execute('drop table if exists {tn}'.format(tn=table_name1))
+c.execute('CREATE TABLE {tn} ({it} {ft},{pt} {ft},{ib} {ft},{iq} {ft},{isc} {ft},{oc} {ft},{pc} {ft},{ec} {ft}\
+    )'\
+        .format(tn=table_name1, it=iteration_col,\
+        pt=patron_col, ib=in_bar_col,\
+        iq=in_queue_col, isc=in_street_col,\
+        oc=optimism_col, pc=patience_col,\
+        ec=extroversion_col, ft='INTEGER',\
+        ))
+
+people = 1000
+bar_stats = 'Bar\nPopulation %:\nOptimism:\nPatience:\nExtroversion: '
+queue_stats = 'Queue\nPopulation %:\nOptimism:\nPatience:\nExtroversion: '
+street_stats = 'Street\nPopulation %:\nOptimism:\nPatience:\nExtroversion: '
+optimism = [random.random()*people for x in range(0,people)]
+patience = [random.random()*people for x in range(0,people)]
+extroversion = [random.random()*people for x in range(0,people)]
+ind_wait = [0 for x in range(0,people)]
+timer = [0 for x in range(0,people)]
+queue = [0 for x in range(0,people)]
+bar = [0 for x in range(0,people)]
+street = [0 for x in range(0,people)]
+leaving_q = [0 for x in range(0,people)]
+leaving_b = [0 for x in range(0,people)]
+
 x_movements, y_movements = update_pos(people)
 
 fig, ax = plt.subplots()
@@ -126,8 +159,13 @@ fig, ax = plt.subplots()
 ax = plt.axes(xlim=(0, 10), ylim=(0, 10))
 
 anim = animation.FuncAnimation(fig, animate,
-                               frames = 10,
+                               frames = 100,
                                interval=1,
                                blit=False)
-
 plt.show()
+c.execute('SELECT * FROM {tn}'.format(tn=table_name1))
+result = c.fetchall()
+for r in result:
+    print r,
+conn.commit()
+conn.close()
